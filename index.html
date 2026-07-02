@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Boolean Truth Table Generator</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #d4d0c8;
+      margin: 0;
+      padding: 10px;
+    }
+    h1 {
+      font-size: 18px;
+      text-align: center;
+      color: #000080;
+      text-decoration: underline;
+    }
+    .container {
+      background-color: #ece9d8;
+      border: 2px inset #808080;
+      padding: 10px;
+      max-width: 800px;
+      margin: 0 auto;
+    }
+    .legend {
+      background: #fff;
+      border: 1px solid #808080;
+      padding: 6px 10px;
+      font-size: 13px;
+      margin-bottom: 8px;
+    }
+    .legend b { color: #000080; }
+    .legend table { border-collapse: collapse; }
+    .legend td { padding: 1px 8px; }
+    label {
+      font-size: 13px;
+      font-weight: bold;
+    }
+    .input-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 8px;
+      flex-wrap: wrap;
+    }
+    #expr {
+      font-family: Courier New, monospace;
+      font-size: 15px;
+      border: 2px inset #808080;
+      padding: 3px 5px;
+      width: 320px;
+      background: #fff;
+    }
+    .op-btn {
+      font-family: Courier New, monospace;
+      font-size: 13px;
+      border: 2px outset #808080;
+      background: #d4d0c8;
+      padding: 2px 7px;
+      cursor: pointer;
+      font-weight: bold;
+    }
+    .op-btn:active { border-style: inset; }
+    #generate-btn {
+      font-size: 13px;
+      border: 2px outset #808080;
+      background: #d4d0c8;
+      padding: 3px 14px;
+      cursor: pointer;
+      font-weight: bold;
+    }
+    #generate-btn:active { border-style: inset; }
+    #clear-btn {
+      font-size: 13px;
+      border: 2px outset #808080;
+      background: #d4d0c8;
+      padding: 3px 10px;
+      cursor: pointer;
+    }
+    #clear-btn:active { border-style: inset; }
+    #error {
+      color: red;
+      font-size: 13px;
+      min-height: 16px;
+      margin-bottom: 4px;
+    }
+    #output {
+      overflow-x: auto;
+    }
+    table.truth {
+      border-collapse: collapse;
+      font-family: Courier New, monospace;
+      font-size: 13px;
+      margin-top: 6px;
+      background: #fff;
+    }
+    table.truth th {
+      background: #000080;
+      color: #fff;
+      border: 1px solid #000060;
+      padding: 3px 12px;
+      text-align: center;
+    }
+    table.truth td {
+      border: 1px solid #808080;
+      padding: 2px 12px;
+      text-align: center;
+    }
+    table.truth tr:nth-child(even) td { background: #f0f0f0; }
+    table.truth td.result-0 { color: #cc0000; font-weight: bold; }
+    table.truth td.result-1 { color: #006600; font-weight: bold; }
+    .section-label {
+      font-size: 12px;
+      color: #444;
+      margin-bottom: 3px;
+    }
+    hr { border: 1px inset #808080; margin: 8px 0; }
+    .examples {
+      font-size: 12px;
+      color: #333;
+      margin-top: 6px;
+    }
+    .examples b { color: #000080; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>&#9632; Boolean Truth Table Generator &#9632;</h1>
+
+    <div class="legend">
+      <b>Operator Reference:</b>
+      <table>
+        <tr>
+          <td><b>+</b></td><td>OR</td>
+          <td>&nbsp;&nbsp;<b>.</b></td><td>AND</td>
+          <td>&nbsp;&nbsp;<b>'</b></td><td>NOT (postfix, e.g. A')</td>
+          <td>&nbsp;&nbsp;<b>^</b></td><td>XOR</td>
+          <td>&nbsp;&nbsp;<b>( )</b></td><td>Grouping</td>
+        </tr>
+      </table>
+      Variables: single uppercase letters A–Z
+    </div>
+
+    <div class="section-label">Expression:</div>
+    <div class="input-row">
+      <input type="text" id="expr" placeholder="e.g.  A.B + A'.C" />
+      <button class="op-btn" onclick="ins('+')">+</button>
+      <button class="op-btn" onclick="ins('.')">.</button>
+      <button class="op-btn" onclick="ins(&#39;&#39;&#39;&#39;)">'</button>
+      <button class="op-btn" onclick="ins('^')">^</button>
+      <button class="op-btn" onclick="ins('(')"> ( </button>
+      <button class="op-btn" onclick="ins(')')"> ) </button>
+      <button id="clear-btn" onclick="clearAll()">Clear</button>
+    </div>
+
+    <div class="section-label">Variable buttons (click to insert):</div>
+    <div class="input-row" id="var-btns">
+      <!-- populated by JS -->
+    </div>
+
+    <div class="input-row">
+      <button id="generate-btn" onclick="generate()">&#9658; Generate Truth Table</button>
+    </div>
+
+    <div id="error"></div>
+
+    <div id="output"></div>
+
+    <hr>
+    <div class="examples">
+      <b>Examples:</b><br>
+      &nbsp;A.B + A'.C &nbsp;&nbsp; A^B &nbsp;&nbsp; (A+B).(A'+C) &nbsp;&nbsp; A.B.C' + A'.B'
+    </div>
+  </div>
+
+  <script>
+    const exprEl = document.getElementById('expr');
+    const errorEl = document.getElementById('error');
+    const outputEl = document.getElementById('output');
+
+    function ins(ch) {
+      const s = exprEl.selectionStart;
+      const e = exprEl.selectionEnd;
+      exprEl.value = exprEl.value.slice(0, s) + ch + exprEl.value.slice(e);
+      exprEl.selectionStart = exprEl.selectionEnd = s + ch.length;
+      exprEl.focus();
+    }
+
+    function clearAll() {
+      exprEl.value = '';
+      errorEl.textContent = '';
+      outputEl.innerHTML = '';
+      exprEl.focus();
+    }
+
+    // ---------- Parser / Evaluator ----------
+    // Grammar:
+    //   expr   = term ('+' term)*
+    //   term   = xor ('^' xor)*     [we'll fold XOR in here]
+    //   factor = primary "'"*        (postfix NOT)
+    //   primary = VAR | '(' expr ')'
+
+    // Actually use a proper precedence:
+    // OR (+) < XOR (^) < AND (.) < NOT (')
+    // We handle ' as postfix on primaries.
+
+    class Parser {
+      constructor(tokens) {
+        this.tokens = tokens;
+        this.pos = 0;
+      }
+      peek() { return this.tokens[this.pos] || null; }
+      consume() { return this.tokens[this.pos++]; }
+      expect(t) {
+        const tok = this.consume();
+        if (!tok || tok.value !== t) throw new Error(`Expected '${t}' but got '${tok ? tok.value : 'end'}'`);
+        return tok;
+      }
+
+      // expr = xorExpr ('+' xorExpr)*
+      parseExpr() {
+        let node = this.parseXor();
+        while (this.peek() && this.peek().value === '+') {
+          this.consume();
+          const right = this.parseXor();
+          node = { op: 'OR', left: node, right };
+        }
+        return node;
+      }
+
+      // xorExpr = andExpr ('^' andExpr)*
+      parseXor() {
+        let node = this.parseAnd();
+        while (this.peek() && this.peek().value === '^') {
+          this.consume();
+          const right = this.parseAnd();
+          node = { op: 'XOR', left: node, right };
+        }
+        return node;
+      }
+
+      // andExpr = notExpr ('.' notExpr)*
+      // Also handle implicit AND: two factors adjacent (VAR or '(')
+      parseAnd() {
+        let node = this.parseNot();
+        while (this.peek() && (this.peek().value === '.' ||
+               (this.peek().type === 'VAR' || this.peek().value === '('))) {
+          if (this.peek().value === '.') this.consume();
+          const right = this.parseNot();
+          node = { op: 'AND', left: node, right };
+        }
+        return node;
+      }
+
+      // notExpr = primary "'"*
+      parseNot() {
+        let node = this.parsePrimary();
+        while (this.peek() && this.peek().value === "'") {
+          this.consume();
+          node = { op: 'NOT', operand: node };
+        }
+        return node;
+      }
+
+      parsePrimary() {
+        const tok = this.peek();
+        if (!tok) throw new Error('Unexpected end of expression');
+        if (tok.type === 'VAR') {
+          this.consume();
+          return { op: 'VAR', name: tok.value };
+        }
+        if (tok.value === '(') {
+          this.consume();
+          const node = this.parseExpr();
+          this.expect(')');
+          return node;
+        }
+        throw new Error(`Unexpected token: '${tok.value}'`);
+      }
+    }
+
+    function tokenize(expr) {
+      const tokens = [];
+      for (let i = 0; i < expr.length; i++) {
+        const ch = expr[i];
+        if (ch === ' ' || ch === '\t') continue;
+        if (/[A-Z]/.test(ch)) tokens.push({ type: 'VAR', value: ch });
+        else if (['+', '.', "'", '^', '(', ')'].includes(ch)) tokens.push({ type: 'OP', value: ch });
+        else throw new Error(`Unknown character: '${ch}'`);
+      }
+      return tokens;
+    }
+
+    function evaluate(node, env) {
+      switch (node.op) {
+        case 'VAR': return env[node.name];
+        case 'NOT': return evaluate(node.operand, env) ? 0 : 1;
+        case 'AND': return evaluate(node.left, env) & evaluate(node.right, env);
+        case 'OR':  return evaluate(node.left, env) | evaluate(node.right, env);
+        case 'XOR': return evaluate(node.left, env) ^ evaluate(node.right, env);
+      }
+    }
+
+    function getVars(node) {
+      const vars = new Set();
+      function walk(n) {
+        if (n.op === 'VAR') { vars.add(n.name); return; }
+        if (n.operand) walk(n.operand);
+        if (n.left)    walk(n.left);
+        if (n.right)   walk(n.right);
+      }
+      walk(node);
+      return [...vars].sort();
+    }
+
+    // Collect sub-expressions for column display
+    function getSubExprs(node, exprStr) {
+      // We'll display columns: each variable, then the full expression
+      // Optionally we could show sub-expressions but keep it simple: just vars + result
+      return [];
+    }
+
+    function generate() {
+      errorEl.textContent = '';
+      outputEl.innerHTML = '';
+      let expr = exprEl.value.trim().toUpperCase();
+      if (!expr) { errorEl.textContent = 'Please enter an expression.'; return; }
+
+      let tokens, ast, vars;
+      try {
+        tokens = tokenize(expr);
+        const parser = new Parser(tokens);
+        ast = parser.parseExpr();
+        if (parser.peek()) throw new Error(`Unexpected token: '${parser.peek().value}'`);
+        vars = getVars(ast);
+      } catch (e) {
+        errorEl.textContent = 'Parse error: ' + e.message;
+        return;
+      }
+
+      if (vars.length === 0) {
+        errorEl.textContent = 'No variables found. Use uppercase letters A-Z.';
+        return;
+      }
+      if (vars.length > 8) {
+        errorEl.textContent = 'Too many variables (max 8). That would be ' + Math.pow(2, vars.length) + ' rows!';
+        return;
+      }
+
+      const n = vars.length;
+      const rows = 1 << n;
+
+      // Build table
+      const table = document.createElement('table');
+      table.className = 'truth';
+
+      // Header
+      const thead = table.createTHead();
+      const hr = thead.insertRow();
+      vars.forEach(v => {
+        const th = document.createElement('th');
+        th.textContent = v;
+        hr.appendChild(th);
+      });
+      const thResult = document.createElement('th');
+      thResult.textContent = expr;
+      hr.appendChild(thResult);
+
+      // Rows
+      const tbody = table.createTBody();
+      for (let i = 0; i < rows; i++) {
+        const env = {};
+        vars.forEach((v, idx) => {
+          env[v] = (i >> (n - 1 - idx)) & 1;
+        });
+        const result = evaluate(ast, env);
+
+        const row = tbody.insertRow();
+        vars.forEach(v => {
+          const td = row.insertCell();
+          td.textContent = env[v];
+        });
+        const tdRes = row.insertCell();
+        tdRes.textContent = result;
+        tdRes.className = result ? 'result-1' : 'result-0';
+      }
+
+      outputEl.appendChild(table);
+
+      // Summary
+      let trueCount = 0;
+      for (let i = 0; i < rows; i++) {
+        const env = {};
+        vars.forEach((v, idx) => { env[v] = (i >> (n - 1 - idx)) & 1; });
+        if (evaluate(ast, env)) trueCount++;
+      }
+      const summary = document.createElement('div');
+      summary.style.fontSize = '12px';
+      summary.style.marginTop = '5px';
+      summary.style.color = '#333';
+      summary.innerHTML = `${rows} rows total &mdash; <span style="color:#006600;font-weight:bold">${trueCount} TRUE</span>, <span style="color:#cc0000;font-weight:bold">${rows - trueCount} FALSE</span>`;
+      outputEl.appendChild(summary);
+    }
+
+    // Populate variable quick-insert buttons A-Z
+    const varBtns = document.getElementById('var-btns');
+    'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('').forEach(ch => {
+      const btn = document.createElement('button');
+      btn.className = 'op-btn';
+      btn.textContent = ch;
+      btn.onclick = () => ins(ch);
+      varBtns.appendChild(btn);
+    });
+
+    // Allow Enter key
+    exprEl.addEventListener('keydown', e => {
+      if (e.key === 'Enter') generate();
+    });
+  </script>
+</body>
+</html>
